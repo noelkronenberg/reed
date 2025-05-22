@@ -15,5 +15,6 @@ pip install -r requirements.txt
 
 Start the application:
 ```bash
-python app.py
+cd api
+python index.py
 ```
