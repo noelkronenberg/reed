@@ -52,7 +52,7 @@
             <div class="mb-6">
               <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-2">
                 <div id="reload-notice" class="flex items-center gap-2 text-sm text-gray-600 min-h-[24px]">
-                  <i class="fas fa-clock text-gray-400"></i>
+                  <i class="fas fa-info-circle text-gray-400"></i>
                   <span>
                     Results reload automatically after {{ cache_hours }} hours or when you change keywords.
                   </span>
@@ -66,7 +66,7 @@
             <div id="papers" class="space-y-6">
                 <!-- papers will be loaded here -->
                 <div class="text-center py-8">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                    <div class="mx-auto my-4 w-6 h-6 border-2 border-t-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
                     <p class="mt-2 text-gray-600">Loading papers...</p>
                 </div>
             </div>
@@ -242,7 +242,7 @@
                     
                     papersContainer.innerHTML = `
                         <div class="text-center py-8">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                            <div class="mx-auto my-4 w-6 h-6 border-2 border-t-2 border-gray-300 border-t-gray-500 rounded-full animate-spin"></div>
                             <p class="mt-2 text-gray-600">Loading papers...</p>
                         </div>
                     `;
