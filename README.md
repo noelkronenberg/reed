@@ -1,5 +1,8 @@
 # Paper Feed
 
+Customizable feed for Machine Learning papers on arXiv.
+
+
 ## Setup
 
 Create and activate a virtual environment:
