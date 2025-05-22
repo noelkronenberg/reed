@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ML Paper Feed</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    </head>
+
+    <body class="bg-gray-50">
+        <div class="container mx-auto px-4 py-8 max-w-4xl">
+
+            <header class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">ML Paper Feed</h1>
+                <p class="text-gray-600">Latest papers from arXiv ML categories</p>
+            </header>
+
+            <!-- search form -->
+            <div class="mb-8 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-4 sm:p-8 border border-gray-200">
+                <form id="search-form" class="space-y-6">
+                    <div>
+                        <label for="keywords" class="block text-base font-medium text-gray-800 mb-3">
+                            Search Keywords
+                        </label>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <input type="text" 
+                                       id="keywords" 
+                                       name="keywords" 
+                                       placeholder="e.g. transformer, diffusion, reinforcement learning"
+                                       class="flex-1 rounded-lg border-2 border-gray-200 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 px-4 py-2.5 text-gray-700 placeholder-gray-400 transition-colors duration-200 bg-gray-50 hover:bg-white">
+                                <button type="submit" 
+                                        class="inline-flex items-center justify-center px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md">
+                                    <i class="fas fa-search mr-2"></i>
+                                    Search
+                                </button>
+                            </div>
+                            <div id="active-keywords" class="flex flex-wrap gap-2 mt-2">
+                                <!-- active keywords will be shown here -->
+                            </div>
+                        </div>
+                        <p class="mt-3 text-sm text-gray-500">
+                            Enter keywords separated by commas.
+                        </p>
+                    </div>
+                </form>
+            </div>
+
+            <!-- processing box -->
+            <div class="mb-6">
+              <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-2">
+                <div id="reload-notice" class="flex items-center gap-2 text-sm text-gray-600">
+                  <i class="fas fa-clock text-gray-400"></i>
+                  <span>
+                    Results reload automatically after {{ cache_hours }} hours or when you change keywords.
+                  </span>
+                </div>
+                <div id="cache-info" class="flex items-center gap-2 text-sm text-gray-600"></div>
+                <div id="match-stats" class="flex items-center gap-2 text-sm text-gray-600"></div>
+                <div id="search-query" class="flex items-start gap-2 text-sm text-gray-600"></div>
+              </div>
+            </div>
+
+            <div id="papers" class="space-y-6">
+                <!-- papers will be loaded here -->
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                    <p class="mt-2 text-gray-600">Loading papers...</p>
+                </div>
+            </div>
+
+        </div>
+
+        <script>
+
+            function formatDate(dateStr) {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            }
+
+            function formatCacheAge(seconds) {
+                if (!seconds) return '';
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) {
+                    return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+                }
+                const hours = Math.floor(minutes / 60);
+                return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+            }
+
+            function getScholarUrl(author) {
+                const encodedName = encodeURIComponent(author);
+                return `https://scholar.google.com/scholar?q=author:${encodedName}`;
+            }
+
+            function createAuthorLink(author) {
+                return `<a href="${getScholarUrl(author)}" 
+                        target="_blank" 
+                        class="text-blue-600 hover:text-blue-800 hover:underline"
+                        title="Search on Google Scholar">
+                        ${author}
+                    </a>`;
+            }
+
+            function updateCacheInfo(data) {
+                const cacheInfo = document.getElementById('cache-info');
+                if (data.cache_status === 'fresh') {
+                    cacheInfo.innerHTML = `
+                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <i class="fas fa-check-circle text-gray-400"></i>
+                            <span>Using cached data from ${formatCacheAge(data.cache_age)}</span>
+                        </div>
+                    `;
+                } else if (data.cache_status === 'expired') {
+                    cacheInfo.innerHTML = `
+                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <i class="fas fa-sync-alt text-yellow-500"></i>
+                            <span>Refreshing data (last updated ${formatCacheAge(data.cache_age)})</span>
+                        </div>
+                    `;
+                } else {
+                    cacheInfo.innerHTML = `
+                        <div class="flex items-center gap-2 text-sm text-gray-600">
+                            <i class="fas fa-download text-blue-500"></i>
+                            <span>Fetching fresh data</span>
+                        </div>
+                    `;
+                }
+            }
+
+            function createPaperCard(paper) {
+                return `
+                    <article class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 sm:p-6 border border-gray-200">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
+                            <div class="flex-1">
+                                <h2 class="text-lg sm:text-xl font-semibold text-gray-900 mb-2">
+                                    <a href="${paper.pdf_url}" target="_blank" class="hover:text-blue-600 break-words">
+                                        ${paper.title}
+                                    </a>
+                                </h2>
+                                <div class="text-sm text-gray-500 break-words">
+                                    <i class="fas fa-users mr-1"></i>
+                                    ${paper.authors.map(createAuthorLink).join(', ')}
+                                </div>
+                            </div>
+                            <span class="text-sm text-gray-500 sm:ml-4">${formatDate(paper.published)}</span>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-gray-600 break-words">${paper.abstract}</p>
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${paper.categories.map(cat => `
+                                <span class="px-2 py-1 bg-gray-50 text-gray-700 text-sm rounded-lg border border-gray-200">
+                                    ${cat}
+                                </span>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <a href="${paper.pdf_url}" target="_blank" 
+                            class="inline-flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md">
+                                <i class="fas fa-file-pdf mr-2"></i>
+                                Read Paper
+                            </a>
+                        </div>
+                    </article>
+                `;
+            }
+
+            let activeKeywords = new Set();
+
+            function updateActiveKeywords() {
+                const container = document.getElementById('active-keywords');
+                container.innerHTML = '';
+                
+                activeKeywords.forEach(keyword => {
+                    const tag = document.createElement('span');
+                    tag.className = 'inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-colors duration-200';
+                    tag.innerHTML = `
+                        ${keyword}
+                        <button type="button" 
+                                class="ml-2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                                onclick="removeKeyword('${keyword}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    container.appendChild(tag);
+                });
+
+                // update url with current keywords
+                updateUrlWithKeywords();
+            }
+
+            function updateUrlWithKeywords() {
+                const keywords = Array.from(activeKeywords).join(',');
+                const url = new URL(window.location);
+                if (keywords) {
+                    url.searchParams.set('keywords', keywords);
+                } else {
+                    url.searchParams.delete('keywords');
+                }
+                window.history.replaceState({}, '', url);
+            }
+
+            function addKeywords(keywords) {
+                const newKeywords = keywords.split(',')
+                    .map(k => k.trim())
+                    .filter(k => k && !activeKeywords.has(k));
+                
+                newKeywords.forEach(k => activeKeywords.add(k));
+                updateActiveKeywords();
+                searchPapers();
+            }
+
+            function removeKeyword(keyword) {
+                activeKeywords.delete(keyword);
+                updateActiveKeywords();
+                searchPapers();
+            }
+
+            function searchPapers() {
+                const keywords = Array.from(activeKeywords).join(',');
+                loadPapers(keywords);
+            }
+
+            let currentPage = 1;
+            let hasMorePapers = false;
+
+            async function loadPapers(keywords = '') {
+                try {
+                    const papersContainer = document.getElementById('papers');
+                    const matchStats = document.getElementById('match-stats');
+                    const searchQuery = document.getElementById('search-query');
+                    
+                    papersContainer.innerHTML = `
+                        <div class="text-center py-8">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                            <p class="mt-2 text-gray-600">Loading papers...</p>
+                        </div>
+                    `;
+                    matchStats.innerHTML = '';
+                    searchQuery.innerHTML = '';
+
+                    const response = await fetch(`/api/papers?keywords=${encodeURIComponent(keywords)}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    updateCacheInfo(data);
+                    
+                    // update match statistics
+                    if (data.papers.length > 0) {
+                        matchStats.innerHTML = `
+                            <div class="flex items-center gap-2 text-sm text-gray-600">
+                                <i class="fas fa-dot-circle text-gray-400"></i>
+                                <span>Found ${data.papers.length} papers (${data.match_percentage}% of ${data.total_searched} searched)</span>
+                            </div>
+                        `;
+                    } else {
+                        matchStats.innerHTML = `
+                            <div class="flex items-center gap-2 text-gray-500">
+                                <i class="fas fa-info-circle"></i>
+                                <span>No papers found matching your keywords</span>
+                            </div>
+                        `;
+                    }
+
+                    // show search query
+                    if (keywords) {
+                        searchQuery.innerHTML = `
+                            <div class="flex items-start gap-2 text-sm text-gray-600">
+                                <i class="fas fa-search text-gray-400 mt-1"></i>
+                                <span>
+                                    Search query:
+                                    <span class="font-mono bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 break-all leading-loose">
+                                        ${data.search_query || keywords}
+                                    </span>
+                                </span>
+                            </div>
+                        `;
+                    }
+                    
+                    papersContainer.innerHTML = data.papers.map(createPaperCard).join('');
+                    
+                } catch (error) {
+                    console.error('Error loading papers:', error);
+                    document.getElementById('papers').innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-red-600">Error loading papers. Please try again later.</p>
+                        </div>
+                    `;
+                    document.getElementById('match-stats').innerHTML = '';
+                    document.getElementById('search-query').innerHTML = '';
+                }
+            }
+
+            // handle search form submission
+            document.getElementById('search-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const input = document.getElementById('keywords');
+                addKeywords(input.value);
+                input.value = ''; // clear input
+                currentPage = 1; // reset page when searching
+                searchPapers();
+            });
+
+            // load initial keywords from url
+            function loadKeywordsFromUrl() {
+                const url = new URL(window.location);
+                const keywords = url.searchParams.get('keywords');
+                if (keywords) {
+                    addKeywords(keywords);
+                } else {
+                    loadPapers();
+                }
+            }
+
+            // initialize page
+            loadKeywordsFromUrl();
+
+        </script>
+    </body>
+</html> 
