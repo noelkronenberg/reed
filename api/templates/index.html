@@ -51,15 +51,15 @@
             <!-- processing box -->
             <div class="mb-6">
               <div class="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex flex-col gap-2">
-                <div id="reload-notice" class="flex items-center gap-2 text-sm text-gray-600">
+                <div id="reload-notice" class="flex items-center gap-2 text-sm text-gray-600 min-h-[24px]">
                   <i class="fas fa-clock text-gray-400"></i>
                   <span>
                     Results reload automatically after {{ cache_hours }} hours or when you change keywords.
                   </span>
                 </div>
-                <div id="cache-info" class="flex items-center gap-2 text-sm text-gray-600"></div>
-                <div id="match-stats" class="flex items-center gap-2 text-sm text-gray-600"></div>
-                <div id="search-query" class="flex items-start gap-2 text-sm text-gray-600"></div>
+                <div id="cache-info" class="flex items-center gap-2 text-sm text-gray-600 min-h-[24px]">&nbsp;</div>
+                <div id="match-stats" class="flex items-center gap-2 text-sm text-gray-600 min-h-[24px]">&nbsp;</div>
+                <div id="search-query" class="flex items-start gap-2 text-sm text-gray-600 min-h-[24px]">&nbsp;</div>
               </div>
             </div>
 
@@ -120,14 +120,14 @@
                 } else if (data.cache_status === 'expired') {
                     cacheInfo.innerHTML = `
                         <div class="flex items-center gap-2 text-sm text-gray-600">
-                            <i class="fas fa-sync-alt text-yellow-500"></i>
+                            <i class="fas fa-sync-alt text-gray-400"></i>
                             <span>Refreshing data (last updated ${formatCacheAge(data.cache_age)})</span>
                         </div>
                     `;
                 } else {
                     cacheInfo.innerHTML = `
                         <div class="flex items-center gap-2 text-sm text-gray-600">
-                            <i class="fas fa-download text-blue-500"></i>
+                            <i class="fas fa-download text-gray-400"></i>
                             <span>Fetching fresh data</span>
                         </div>
                     `;
@@ -269,7 +269,7 @@
                     } else {
                         matchStats.innerHTML = `
                             <div class="flex items-center gap-2 text-gray-500">
-                                <i class="fas fa-info-circle"></i>
+                                <i class="fas fa-info-circle text-gray-400"></i>
                                 <span>No papers found matching your keywords</span>
                             </div>
                         `;
