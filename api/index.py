@@ -419,42 +419,42 @@ def get_recommendations() -> json:
 @app.route('/feed.xml')
 def rss_feed() -> Response:
     """
-    Generate RSS feed of paper recommendations.
+    Generate RSS feed of paper recommendations (disabled for now).
 
     Returns:
-        Response: RSS feed in XML format.
+        Response: 503 Service Unavailable response.
     """
 
-    _, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
-    
-    fg = FeedGenerator()
-    fg.title('Paper Recommendations')
-    fg.description('Latest paper recommendations based on your Zotero library')
-    fg.link(href=request.url_root)
-    fg.language('en')
-    
-    if last_update_date:
-        # add timezone info to the datetime
-        date_obj = datetime.strptime(last_update_date, '%Y-%m-%d')
-        date_obj = date_obj.replace(tzinfo=timezone.utc)
-        fg.updated(date_obj)
-    
-    for paper in recommendations:
-        fe = fg.add_entry()
-        fe.title(paper['title'])
-        fe.link(href=paper['url'])
-        fe.description(paper['abstract'])
-        fe.author(name=', '.join(paper['authors']))
-        if paper['date']:
-            try:
-                # add timezone info to the publication date
-                pub_date = datetime.strptime(paper['date'], '%B %d, %Y')
-                pub_date = pub_date.replace(tzinfo=timezone.utc)
-                fe.published(pub_date)
-            except:
-                pass
-    
-    return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True) 
+    if False: # disable RSS feed for now
+        _, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
+        
+        fg = FeedGenerator()
+        fg.title('Paper Recommendations')
+        fg.description('Latest paper recommendations based on your Zotero library')
+        fg.link(href=request.url_root)
+        fg.language('en')
+        
+        if last_update_date:
+            # add timezone info to the datetime
+            date_obj = datetime.strptime(last_update_date, '%Y-%m-%d')
+            date_obj = date_obj.replace(tzinfo=timezone.utc)
+            fg.updated(date_obj)
+        
+        for paper in recommendations:
+            fe = fg.add_entry()
+            fe.title(paper['title'])
+            fe.link(href=paper['url'])
+            fe.description(paper['abstract'])
+            fe.author(name=', '.join(paper['authors']))
+            if paper['date']:
+                try:
+                    # add timezone info to the publication date
+                    pub_date = datetime.strptime(paper['date'], '%B %d, %Y')
+                    pub_date = pub_date.replace(tzinfo=timezone.utc)
+                    fe.published(pub_date)
+                except:
+                    pass
+        
+        return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
+    else:
+        return Response('RSS feed is currently not available', status=503)

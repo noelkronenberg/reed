@@ -5,3 +5,5 @@ api/api_keys.json
 api/last_refresh.json
 api/recommendations.json
 api/seed_papers.json
+.vercel
+.env*.local

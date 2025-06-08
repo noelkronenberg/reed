@@ -18,6 +18,8 @@ pip install -r requirements.txt
 
 Start the application:
 ```bash
-cd api
-python index.py
+npm i -g vercel # install Vercel CLI
+vercel link # link to Vercel project
+vercel env pull # pull environment variables
+vercel dev # start deployment server
 ```
