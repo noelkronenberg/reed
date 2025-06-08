@@ -7,6 +7,7 @@ import json
 import logging
 from feedgen.feed import FeedGenerator
 import random
+import time
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -14,8 +15,15 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-KEYS_FILE = 'api_keys.json'
-LAST_REFRESH_FILE = 'last_refresh.json'
+API_CALL_DELAY = 1.0 # seconds between API calls
+
+def rate_limit():
+    """
+    Add a delay between API calls to prevent overloading.
+    """
+
+    logger.debug(f"Rate limiting for {API_CALL_DELAY} seconds")
+    time.sleep(API_CALL_DELAY)
 
 def load_api_keys() -> dict:
     """
@@ -65,6 +73,7 @@ def fetch_recent_papers(n_papers: int = 100) -> list:
     
     try:
         zotero_client = zotero.Zotero(keys['zotero_user_id'], 'user', keys['zotero_api_key'])
+        rate_limit() # add delay before API call
         items = zotero_client.items(limit=n_papers, sort='dateAdded', direction='desc')
         logger.debug(f"Fetched {len(items)} items from Zotero")
         
@@ -180,6 +189,7 @@ def get_paper_recommendations(seed_papers: list, n_recommendations: int = 3) -> 
             }
             
             logger.debug(f"Getting recommendations for {len(paper_ids)} papers (attempt {attempt + 1})")
+            rate_limit() # add delay before API call
             response = requests.post(
                 url,
                 headers=headers,
