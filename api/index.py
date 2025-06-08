@@ -262,11 +262,13 @@ def should_update_recommendations() -> bool:
     """
     last_refresh = session.get('last_refresh')
     if not last_refresh:
+        logger.debug("No last refresh date found in session")
         return True
         
     # check if last refresh date is before today
     try:
         last_refresh_date = datetime.strptime(last_refresh, '%Y-%m-%d').date()
+        logger.debug(f"Last refresh date: {last_refresh_date}")
         return last_refresh_date < datetime.now().date()
     
     except Exception as e:
@@ -303,7 +305,7 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
             session['last_refresh'] = current_date
             session['seed_papers'] = seed_papers
             session['recommendations'] = recommendations
-            logger.debug("Saved data to session")
+            logger.debug(f"Saved {len(seed_papers)} seed papers and {len(recommendations)} recommendations to session")
             
             last_update_date = current_date
         
@@ -314,30 +316,36 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
     else:
         logger.debug("Recommendations are up to date, loading from session")
 
-        try:
-            seed_papers = session.get('seed_papers', [])
-            recommendations = session.get('recommendations', [])
-            last_update_date = session.get('last_refresh')
-            logger.debug("Loaded data from session")
+        seed_papers = session.get('seed_papers', [])
+        recommendations = session.get('recommendations', [])
+        last_update_date = session.get('last_refresh')
+        logger.debug(f"Loaded {len(seed_papers)} seed papers and {len(recommendations)} recommendations from session")
         
-        # if session data is missing, generate new seed papers and recommendations
-        except:
+        # if session data is empty, generate new recommendations
+        if not seed_papers or not recommendations:
+            logger.debug("Session data is empty, generating new recommendations")
             seed_papers = get_random_seed_papers(all_papers, n_seed_papers=n_seed_papers)
             recommendations = get_paper_recommendations(seed_papers, n_recommendations=n_recommendations)
-    
-            # save to session
+            
             try:
                 current_date = datetime.now().date().strftime('%Y-%m-%d')
+
+                # save to session
                 session['last_refresh'] = current_date
                 session['seed_papers'] = seed_papers
                 session['recommendations'] = recommendations
-                logger.debug("Saved data to session")
-                
-                last_update_date = current_date
+                logger.debug(f"Saved {len(seed_papers)} seed papers and {len(recommendations)} recommendations to session")
 
+                last_update_date = current_date
+                
             except Exception as e:
                 logger.error(f"Error saving data to session: {str(e)}")
     
+    # ensure we have valid data before returning
+    if not seed_papers or not recommendations:
+        logger.warning("No seed papers or recommendations available")
+        return [], [], last_update_date
+        
     return seed_papers, recommendations, last_update_date
 
 @app.route('/')
@@ -351,6 +359,7 @@ def index() -> str:
 
     keys = load_api_keys()
     seed_papers, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
+    logger.debug(f"Rendering index with {len(seed_papers)} seed papers and {len(recommendations)} recommendations")
     
     return render_template('index.html', 
                          seed_papers=seed_papers,
@@ -391,6 +400,7 @@ def get_papers() -> json:
     """
 
     seed_papers, _, _ = update_recommendations()
+    logger.debug(f"API /papers returning {len(seed_papers)} papers")
     return jsonify(seed_papers)
 
 @app.route('/api/recommendations')
@@ -403,6 +413,7 @@ def get_recommendations() -> json:
     """
     
     _, recommendations, _ = update_recommendations()
+    logger.debug(f"API /recommendations returning {len(recommendations)} recommendations")
     return jsonify(recommendations)
 
 @app.route('/feed.xml')
