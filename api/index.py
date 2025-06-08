@@ -27,32 +27,30 @@ def rate_limit():
 
 def load_api_keys() -> dict:
     """
-    Load API keys from file.
+    Load API keys from session.
 
     Returns:
         dict: A dictionary containing the API keys.
     """
 
-    if os.path.exists(KEYS_FILE):
-        with open(KEYS_FILE, 'r') as f:
-            keys = json.load(f)
-            logger.debug(f"Loaded API keys")
-            return keys
+    keys = session.get('api_keys', {})
+    if keys:
+        logger.debug(f"Loaded API keys from session")
+        return keys
     
-    logger.debug("No API keys file found")
+    logger.debug("No API keys found in session")
     return {'zotero_api_key': '', 'zotero_user_id': '', 'semantic_scholar_api_key': ''}
 
 def save_api_keys(keys: dict) -> None:
     """
-    Save API keys to file.
+    Save API keys to session.
 
     Args:
         keys (dict): A dictionary containing the API keys.
     """
-
-    with open(KEYS_FILE, 'w') as f:
-        json.dump(keys, f)
-        logger.debug(f"Saved API keys")
+    
+    session['api_keys'] = keys
+    logger.debug(f"Saved API keys to session")
 
 def fetch_recent_papers(n_papers: int = 100) -> list:
     """
@@ -303,8 +301,8 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
             
             # save to session
             session['last_refresh'] = current_date
-            session['recommendations'] = recommendations
             session['seed_papers'] = seed_papers
+            session['recommendations'] = recommendations
             logger.debug("Saved data to session")
             
             last_update_date = current_date
@@ -331,8 +329,8 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
             try:
                 current_date = datetime.now().date().strftime('%Y-%m-%d')
                 session['last_refresh'] = current_date
-                session['recommendations'] = recommendations
                 session['seed_papers'] = seed_papers
+                session['recommendations'] = recommendations
                 logger.debug("Saved data to session")
                 
                 last_update_date = current_date
