@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="page-bg">
+        <div class="main-header">
+            <div class="main-header-title">
+                <span class="icon">⚡</span>
+                <span>API Keys Management</span>
+            </div>
+            <div class="main-header-subtitle">
+                Configure your API keys to enable paper recommendations
+            </div>
+        </div>
+
+        <div class="feed-card">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('manage_keys') }}">
+                <div class="form-group">
+                    <label for="zotero_api_key">Zotero API Key</label>
+                    <input type="password" id="zotero_api_key" name="zotero_api_key" value="{{ keys.zotero_api_key }}" required>
+                    <div class="help-text">Get it from <a href="https://www.zotero.org/settings/keys" target="_blank">Zotero Settings</a></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="zotero_user_id">Zotero User ID</label>
+                    <input type="text" id="zotero_user_id" name="zotero_user_id" value="{{ keys.zotero_user_id }}" required>
+                    <div class="help-text">Your Zotero user ID (found in your profile URL)</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="semantic_scholar_api_key">Semantic Scholar API Key</label>
+                    <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" value="{{ keys.semantic_scholar_api_key }}" required>
+                    <div class="help-text">Get it from <a href="https://www.semanticscholar.org/product/api" target="_blank">Semantic Scholar API</a></div>
+                </div>
+
+                <button type="submit">Save API Keys</button>
+            </form>
+
+            <a href="{{ url_for('index') }}" class="back-link">← Back to Papers</a>
+        </div>
+    </div>
+</body>
+</html> 

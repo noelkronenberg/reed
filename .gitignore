@@ -1,3 +1,7 @@
 __pycache__/
 .DS_Store
 .venv/
+api/api_keys.json
+api/last_refresh.json
+api/recommendations.json
+api/seed_papers.json

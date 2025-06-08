@@ -1,6 +1,6 @@
 # Paper Feed
 
-Customizable feed for Machine Learning papers on arXiv.
+Semantic Scholar paper recommendations based on Zotero library.
 
 
 ## Setup

@@ -1,2 +1,4 @@
-flask==3.0.2
-arxiv==2.0.0
+flask
+pyzotero
+requests
+feedgen
