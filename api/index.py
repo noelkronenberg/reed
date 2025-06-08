@@ -17,8 +17,8 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 API_CALL_DELAY = 1.5 # seconds between API calls
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'na')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'na')
 
 def verify_admin(username: str, password: str) -> bool:
     """
