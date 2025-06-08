@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-API_CALL_DELAY = 1.0 # seconds between API calls
+API_CALL_DELAY = 1.5 # seconds between API calls
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
 
@@ -45,7 +45,7 @@ def rate_limit():
 def load_api_keys() -> dict:
     """
     Load API keys from environment variables (if admin) or session.
-    For admin users, only Semantic Scholar API key is loaded from environment.
+    For admin users, Semantic Scholar API key is loaded from environment.
 
     Returns:
         dict: A dictionary containing the API keys.
@@ -57,6 +57,7 @@ def load_api_keys() -> dict:
         semantic_scholar_api_key = os.getenv('SEMANTIC_SCHOLAR_API_KEY', '')
         if semantic_scholar_api_key:
             logger.debug("Using Semantic Scholar API key from environment variables (admin mode)")
+            
             # get other keys from session
             session_keys = session.get('api_keys', {})
             return {

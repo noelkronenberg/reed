@@ -380,17 +380,19 @@ body {
 
 .help-text {
     font-size: var(--text-sm);
-    color: var(--text-light);
+    color: var(--primary);
     margin-top: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    background: var(--background-light);
+    padding: 0.3em 0.7em;
+    border-radius: var(--radius-md);
+    display: block;
 }
 
 .help-text a {
-    color: var(--primary);
-    text-decoration: none;
-}
-
-.help-text a:hover {
+    color: var(--primary-hover);
     text-decoration: underline;
+    font-weight: 500;
 }
 
 /* buttons */
