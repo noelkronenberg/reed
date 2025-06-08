@@ -8,6 +8,7 @@ import logging
 from feedgen.feed import FeedGenerator
 import random
 import time
+import base64
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -16,6 +17,22 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 API_CALL_DELAY = 1.0 # seconds between API calls
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'admin')
+
+def verify_admin(username: str, password: str) -> bool:
+    """
+    Verify admin credentials.
+    
+    Args:
+        username (str): The username to verify
+        password (str): The password to verify
+        
+    Returns:
+        bool: True if credentials are valid, False otherwise
+    """
+
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
 def rate_limit():
     """
@@ -27,16 +44,32 @@ def rate_limit():
 
 def load_api_keys() -> dict:
     """
-    Load API keys from session.
+    Load API keys from environment variables (if admin) or session.
+    For admin users, only Semantic Scholar API key is loaded from environment.
 
     Returns:
         dict: A dictionary containing the API keys.
     """
-
-    keys = session.get('api_keys', {})
-    if keys:
-        logger.debug(f"Loaded API keys from session")
-        return keys
+    
+    # if admin, try to get Semantic Scholar API key from environment variables
+    auth = request.authorization
+    if auth and verify_admin(auth.username, auth.password):
+        semantic_scholar_api_key = os.getenv('SEMANTIC_SCHOLAR_API_KEY', '')
+        if semantic_scholar_api_key:
+            logger.debug("Using Semantic Scholar API key from environment variables (admin mode)")
+            # get other keys from session
+            session_keys = session.get('api_keys', {})
+            return {
+                'zotero_api_key': session_keys.get('zotero_api_key', ''),
+                'zotero_user_id': session_keys.get('zotero_user_id', ''),
+                'semantic_scholar_api_key': semantic_scholar_api_key
+            }
+    
+    # otherwise, try to get all keys from session
+    session_keys = session.get('api_keys', {})
+    if session_keys:
+        logger.debug(f"Loaded API keys from session (non-admin mode)")
+        return session_keys
     
     logger.debug("No API keys found in session")
     return {'zotero_api_key': '', 'zotero_user_id': '', 'semantic_scholar_api_key': ''}
@@ -348,6 +381,41 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
         
     return seed_papers, recommendations, last_update_date
 
+@app.route('/login')
+def login() -> str:
+    """
+    Handle admin login.
+
+    Returns:
+        str: Redirect to index page or trigger Basic Auth.
+    """
+    
+    # check for Basic Auth credentials
+    auth = request.authorization
+    if auth and verify_admin(auth.username, auth.password):
+        flash('Successfully logged in!')
+        return redirect(url_for('index'))
+
+    # trigger browser's Basic Auth dialog
+    return Response(
+        'Please authenticate',
+        401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
+
+@app.route('/logout')
+def logout() -> str:
+    """
+    Handle admin logout.
+
+    Returns:
+        str: Redirect to index page.
+    """
+
+    response = redirect(url_for('index'))
+    response.headers['Clear-Site-Data'] = '"cache", "cookies", "storage"'
+    return response
+
 @app.route('/')
 def index() -> str:
     """
@@ -361,12 +429,16 @@ def index() -> str:
     seed_papers, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
     logger.debug(f"Rendering index with {len(seed_papers)} seed papers and {len(recommendations)} recommendations")
     
+    auth = request.authorization
+    is_admin = auth and verify_admin(auth.username, auth.password)
+    
     return render_template('index.html', 
                          seed_papers=seed_papers,
                          recommendations=recommendations,
                          has_keys=all(keys.values()),
                          last_update_date=last_update_date,
-                         keys=keys)
+                         keys=keys,
+                         is_admin=is_admin)
 
 @app.route('/api/keys', methods=['GET', 'POST'])
 def manage_keys() -> str:
@@ -378,10 +450,19 @@ def manage_keys() -> str:
     """
 
     if request.method == 'POST':
+        # if admin, preserve Semantic Scholar API key from environment
+        auth = request.authorization
+        if auth and verify_admin(auth.username, auth.password):
+            semantic_scholar_api_key = os.getenv('SEMANTIC_SCHOLAR_API_KEY', '')
+            logger.debug("Using Semantic Scholar API key from environment variables (admin mode)")
+        else:
+            semantic_scholar_api_key = request.form.get('semantic_scholar_api_key', '')
+            logger.debug("Using Semantic Scholar API key from form (non-admin mode)")
+
         keys = {
             'zotero_api_key': request.form.get('zotero_api_key', ''),
             'zotero_user_id': request.form.get('zotero_user_id', ''),
-            'semantic_scholar_api_key': request.form.get('semantic_scholar_api_key', '')
+            'semantic_scholar_api_key': semantic_scholar_api_key
         }
         save_api_keys(keys)
         flash('API keys saved successfully!')

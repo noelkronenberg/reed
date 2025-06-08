@@ -57,6 +57,10 @@
                 <span class="date-updated">{% if last_update_date %}{{ last_update_date }}{% else %}Today{% endif %}</span>
                 <span class="footer-sep">·</span>
                 <a href="#" class="api-keys-link" onclick="showApiKeysModal();return false;">API Keys</a>
+                {% if is_admin %}
+                    <span class="footer-sep">·</span>
+                    <a href="{{ url_for('logout') }}" class="api-keys-link">Logout</a>
+                {% endif %}
                 <span class="footer-sep">·</span>
                 <span class="footer-attribution">Powered in part by <a href="https://www.semanticscholar.org/product/api" target="_blank">Semantic Scholar</a></span>
             </div>
