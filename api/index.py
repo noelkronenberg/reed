@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, Response
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, Response, session
 from pyzotero import zotero
 import requests
 import json
@@ -247,21 +247,19 @@ def get_paper_recommendations(seed_papers: list, n_recommendations: int = 3) -> 
 
 def should_update_recommendations() -> bool:
     """
-    Check if recommendations should be updated based on last refresh date.
+    Check if recommendations should be updated based on last refresh date in session.
     
     Returns:
         bool: True if recommendations should be updated, False otherwise.
     """
-
-    if not os.path.exists(LAST_REFRESH_FILE):
+    last_refresh = session.get('last_refresh')
+    if not last_refresh:
         return True
         
     # check if last refresh date is before today
     try:
-        with open(LAST_REFRESH_FILE, 'r') as f:
-            data = json.load(f)
-            last_refresh = datetime.strptime(data['last_refresh'], '%Y-%m-%d').date()
-            return last_refresh < datetime.now().date()
+        last_refresh_date = datetime.strptime(last_refresh, '%Y-%m-%d').date()
+        return last_refresh_date < datetime.now().date()
     
     except Exception as e:
         logger.error(f"Error checking last refresh date: {str(e)}")
@@ -293,68 +291,44 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
         try:
             current_date = datetime.now().date().strftime('%Y-%m-%d')
             
-            # save last refresh date
-            with open(LAST_REFRESH_FILE, 'w') as f:
-                json.dump({'last_refresh': current_date}, f)
-                logger.debug("Saved last refresh date")
-            
-            # save recommendations
-            with open('recommendations.json', 'w') as f:
-                json.dump(recommendations, f, indent=4)
-                logger.debug("Saved recommendations")
-            
-            # save seed papers
-            with open('seed_papers.json', 'w') as f:
-                json.dump(seed_papers, f, indent=4)
-                logger.debug("Saved seed papers")
+            # save to session
+            session['last_refresh'] = current_date
+            session['recommendations'] = recommendations
+            session['seed_papers'] = seed_papers
+            logger.debug("Saved data to session")
             
             last_update_date = current_date
         
         except Exception as e:
-            logger.error(f"Error saving data: {str(e)}")
+            logger.error(f"Error saving data to session: {str(e)}")
     
-    # load existing recommendations from file, if available
+    # load existing recommendations from session, if available
     else:
-        logger.debug("Recommendations are up to date, loading from files")
+        logger.debug("Recommendations are up to date, loading from session")
 
         try:
-            with open('seed_papers.json', 'r') as f:
-                seed_papers = json.load(f)
-                logger.debug("Loaded seed papers from file")
-
-            with open('recommendations.json', 'r') as f:
-                recommendations = json.load(f)
-                logger.debug("Loaded recommendations from file")
-
-            with open(LAST_REFRESH_FILE, 'r') as f:
-                data = json.load(f)
-                last_update_date = data['last_refresh']
-                logger.debug("Loaded last refresh date from file")
+            seed_papers = session.get('seed_papers', [])
+            recommendations = session.get('recommendations', [])
+            last_update_date = session.get('last_refresh')
+            logger.debug("Loaded data from session")
         
-        # if any file is missing, generate new seed papers and recommendations
+        # if session data is missing, generate new seed papers and recommendations
         except:
             seed_papers = get_random_seed_papers(all_papers, n_seed_papers=n_seed_papers)
             recommendations = get_paper_recommendations(seed_papers, n_recommendations=n_recommendations)
     
-            # save all data
+            # save to session
             try:
-                with open('recommendations.json', 'w') as f:
-                    json.dump(recommendations, f, indent=4)
-                    logger.debug("Saved recommendations to file")
-                
-                with open('seed_papers.json', 'w') as f:
-                    json.dump(seed_papers, f, indent=4)
-                    logger.debug("Saved seed papers to file")
-
-                with open(LAST_REFRESH_FILE, 'w') as f:
-                    json.dump({'last_refresh': current_date}, f)
-                    logger.debug("Saved last refresh date to file")
-                
                 current_date = datetime.now().date().strftime('%Y-%m-%d')
+                session['last_refresh'] = current_date
+                session['recommendations'] = recommendations
+                session['seed_papers'] = seed_papers
+                logger.debug("Saved data to session")
+                
                 last_update_date = current_date
 
             except Exception as e:
-                logger.error(f"Error saving data: {str(e)}")
+                logger.error(f"Error saving data to session: {str(e)}")
     
     return seed_papers, recommendations, last_update_date
 
