@@ -1,4 +1,4 @@
-# Paper Feed
+# Reed
 
 Semantic Scholar paper recommendations based on Zotero library.
 
