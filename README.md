@@ -2,6 +2,8 @@
 
 Semantic Scholar paper recommendations based on Zotero library.
 
+**Note:** This project is not affiliated with Semantic Scholar. By providing your [API key](https://www.semanticscholar.org/product/api#api-key), recommendations provided in the app will be based on the Semantic Scholar [recommendations API](https://api.semanticscholar.org/api-docs/recommendations).
+
 ## Showcase
 
 > The app is live and hosted on Vercel: [reed.vercel.app](https://reed.vercel.app)
