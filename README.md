@@ -6,7 +6,7 @@ Semantic Scholar paper recommendations based on Zotero library.
 
 > The app is live and hosted on Vercel: [reed.vercel.app](https://reed.vercel.app)
 
-https://github.com/user-attachments/assets/3a3ee2d4-92ef-452d-9b48-137d2a849cee
+https://github.com/user-attachments/assets/086ad67a-6a34-48d1-b49b-74bc6a672e17
 
 ## Setup
 
