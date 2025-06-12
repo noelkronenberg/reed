@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-bg">
+    <div class="main-header">
+        <div class="main-header-title">
+            <span>Login</span>
+        </div>
+        <div class="main-header-subtitle">
+            Access your account to manage papers and API keys
+        </div>
+    </div>
+    <div class="feed-card">
+        <form method="POST" class="custom-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="custom-btn">Login</button>
+        </form>
+        <div class="custom-card-footer" style="text-align:center; margin-top:1.5rem;">
+            Don't have an account? <a href="{{ url_for('register') }}">Register here</a>
+        </div>
+
+        {% include '_flash_messages.html' %}
+    </div>
+</div>
+{% endblock %} 

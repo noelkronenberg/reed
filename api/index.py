@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, Response, session
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from pyzotero import zotero
 import requests
 import json
@@ -8,7 +9,10 @@ import logging
 from feedgen.feed import FeedGenerator
 import random
 import time
-import base64
+from dotenv import load_dotenv
+from api.models import db, User # NOTE: remove api if wipe_db.py is run locally
+
+load_dotenv('.env.local')
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -16,9 +20,31 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+# database configuration
+database_url = os.getenv('DATABASE_URL', '').replace('postgres://', 'postgresql://')
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# initialize database
+db.init_app(app)
+
+# initialize login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 API_CALL_DELAY = 1.5 # seconds between API calls
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'na')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'na')
+
+# Create database tables
+with app.app_context():
+    db.create_all()
+    logger.debug("Created all tables") 
 
 def verify_admin(username: str, password: str) -> bool:
     """
@@ -44,47 +70,38 @@ def rate_limit():
 
 def load_api_keys() -> dict:
     """
-    Load API keys from environment variables (if admin) or session.
+    Load API keys from user's encrypted storage or environment variables (if admin).
     For admin users, Semantic Scholar API key is loaded from environment.
 
     Returns:
         dict: A dictionary containing the API keys.
     """
+
+    if current_user.is_authenticated:
+        logger.debug("Loading API keys from user storage")
+        return {
+            'zotero_api_key': current_user.get_zotero_api_key() or '',
+            'zotero_user_id': current_user.get_zotero_user_id() or '',
+            'semantic_scholar_api_key': current_user.get_semantic_scholar_api_key() or ''
+        }
     
-    # if admin, try to get Semantic Scholar API key from environment variables
-    auth = request.authorization
-    if auth and verify_admin(auth.username, auth.password):
-        semantic_scholar_api_key = os.getenv('SEMANTIC_SCHOLAR_API_KEY', '')
-        if semantic_scholar_api_key:
-            logger.debug("Using Semantic Scholar API key from environment variables (admin mode)")
-            
-            # get other keys from session
-            session_keys = session.get('api_keys', {})
-            return {
-                'zotero_api_key': session_keys.get('zotero_api_key', ''),
-                'zotero_user_id': session_keys.get('zotero_user_id', ''),
-                'semantic_scholar_api_key': semantic_scholar_api_key
-            }
-    
-    # otherwise, try to get all keys from session
-    session_keys = session.get('api_keys', {})
-    if session_keys:
-        logger.debug(f"Loaded API keys from session (non-admin mode)")
-        return session_keys
-    
-    logger.debug("No API keys found in session")
+    logger.debug("No API keys found")
     return {'zotero_api_key': '', 'zotero_user_id': '', 'semantic_scholar_api_key': ''}
 
 def save_api_keys(keys: dict) -> None:
     """
-    Save API keys to session.
+    Save API keys to user's encrypted storage.
 
     Args:
         keys (dict): A dictionary containing the API keys.
     """
-    
-    session['api_keys'] = keys
-    logger.debug(f"Saved API keys to session")
+
+    if current_user.is_authenticated:
+        current_user.set_zotero_api_key(keys['zotero_api_key'])
+        current_user.set_zotero_user_id(keys['zotero_user_id'])
+        current_user.set_semantic_scholar_api_key(keys['semantic_scholar_api_key'])
+        db.session.commit()
+        logger.debug(f"Saved API keys to user storage")
 
 def fetch_recent_papers(n_papers: int = 100) -> list:
     """
@@ -294,6 +311,7 @@ def should_update_recommendations() -> bool:
     Returns:
         bool: True if recommendations should be updated, False otherwise.
     """
+    
     last_refresh = session.get('last_refresh')
     if not last_refresh:
         logger.debug("No last refresh date found in session")
@@ -382,50 +400,94 @@ def update_recommendations(n_seed_papers: int = 10, n_recommendations: int = 3) 
         
     return seed_papers, recommendations, last_update_date
 
-@app.route('/login')
-def login() -> str:
+@app.route('/register', methods=['GET', 'POST'])
+def register():
     """
-    Handle admin login.
-
-    Returns:
-        str: Redirect to index page or trigger Basic Auth.
+    Register a new user.
     """
-    
-    # check for Basic Auth credentials
-    auth = request.authorization
-    if auth and verify_admin(auth.username, auth.password):
-        flash('Successfully logged in!')
-        return redirect(url_for('index'))
 
-    # trigger browser's Basic Auth dialog
-    return Response(
-        'Please authenticate',
-        401,
-        {'WWW-Authenticate': 'Basic realm="Login Required"'}
-    )
+    if request.method == 'POST':
+        logger.debug("Registering new user")
+
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            logger.debug(f"Username {username} already exists")
+            return redirect(url_for('register'))
+            
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered')
+            logger.debug(f"Email {email} already registered")
+            return redirect(url_for('register'))
+        
+        user = User(username=username, email=email)
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registration successful! Please login.')
+        logger.debug(f"Registration successful for {username}")
+        return redirect(url_for('login'))
+        
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Login a user.
+    """
+
+    if request.method == 'POST':
+        logger.debug("Logging in user")
+
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Logged in successfully!')
+            logger.debug(f"Login successful for {username}")
+
+            next_page = request.args.get('next')
+            if not next_page or not next_page.startswith('/'):
+                next_page = url_for('index')
+            logger.debug(f"Redirecting to {next_page}")
+            return redirect(next_page)
+            
+        flash('Invalid username or password')
+        logger.debug(f"Login failed for {username}")
+        return redirect(url_for('login'))
+        
+    return render_template('login.html')
 
 @app.route('/logout')
-def logout() -> str:
+@login_required
+def logout():
     """
-    Handle admin logout.
-
-    Returns:
-        str: Redirect to index page.
+    Logout a user.
     """
 
-    response = redirect(url_for('index'))
-    response.headers['Clear-Site-Data'] = '"cache", "cookies", "storage"'
-    return response
+    username = current_user.username
+    logout_user()
+    flash('Logged out successfully!')
+    logger.debug(f"Logged out user {username}")
+    return redirect(url_for('index'))
 
 @app.route('/')
-def index() -> str:
+def index():
     """
     Render the main page.
-
-    Returns:
-        str: The rendered main page.
     """
-
+    
+    if not current_user.is_authenticated:
+        logger.debug("User not authenticated, redirecting to login")
+        return redirect(url_for('login'))
+        
     keys = load_api_keys()
     seed_papers, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
     logger.debug(f"Rendering index with {len(seed_papers)} seed papers and {len(recommendations)} recommendations")
@@ -442,31 +504,22 @@ def index() -> str:
                          is_admin=is_admin)
 
 @app.route('/api/keys', methods=['GET', 'POST'])
-def manage_keys() -> str:
+@login_required
+def manage_keys():
     """
     Manage API keys.
-
-    Returns:
-        str: The rendered keys page.
     """
-
     if request.method == 'POST':
-        # if admin, preserve Semantic Scholar API key from environment
-        auth = request.authorization
-        if auth and verify_admin(auth.username, auth.password):
-            semantic_scholar_api_key = os.getenv('SEMANTIC_SCHOLAR_API_KEY', '')
-            logger.debug("Using Semantic Scholar API key from environment variables (admin mode)")
-        else:
-            semantic_scholar_api_key = request.form.get('semantic_scholar_api_key', '')
-            logger.debug("Using Semantic Scholar API key from form (non-admin mode)")
+        logger.debug("Saving API keys")
 
         keys = {
             'zotero_api_key': request.form.get('zotero_api_key', ''),
             'zotero_user_id': request.form.get('zotero_user_id', ''),
-            'semantic_scholar_api_key': semantic_scholar_api_key
+            'semantic_scholar_api_key': request.form.get('semantic_scholar_api_key', '')
         }
         save_api_keys(keys)
         flash('API keys saved successfully!')
+        logger.debug(f"API keys saved successfully for {current_user.username}")
         return redirect(url_for('index'))
     
     keys = load_api_keys()

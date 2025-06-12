@@ -22,15 +22,10 @@
         </div>
 
         <div class="feed-card">
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="flash-message">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
 
             {% include '_api_keys_form.html' %}
+
+            {% include '_flash_messages.html' %}
 
             <a href="{{ url_for('index') }}" class="back-link">← Back to Papers</a>
         </div>
