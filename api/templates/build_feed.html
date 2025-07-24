@@ -14,15 +14,15 @@
         <form method="POST" class="custom-form">
             <div class="form-group">
                 <label for="zotero_user_id">Zotero User ID</label>
-                <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID">
+                <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID" value="{{ default_keys.zotero_user_id }}">
             </div>
             <div class="form-group">
                 <label for="zotero_api_key">Zotero API Key</label>
-                <input type="password" id="zotero_api_key" name="zotero_api_key" placeholder="Enter your Zotero API key">
+                <input type="password" id="zotero_api_key" name="zotero_api_key" placeholder="Enter your Zotero API key" value="{{ default_keys.zotero_api_key }}">
             </div>
             <div class="form-group">
                 <label for="semantic_scholar_api_key">Semantic Scholar API Key</label>
-                <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" placeholder="Enter your Semantic Scholar API key">
+                <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" placeholder="Enter your Semantic Scholar API key" value="{{ default_keys.semantic_scholar_api_key }}">
             </div>
             <button type="submit" class="custom-btn">Encrypt</button>
         </form>
@@ -36,5 +36,10 @@
 
         {% include '_flash_messages.html' %}
     </div>
+    <footer class="footer-menu">
+        <div class="footer-content">
+            <span class="footer-attribution">Powered in part by <a href="https://www.semanticscholar.org/product/api" target="_blank">Semantic Scholar</a></span>
+        </div>
+    </footer>
 </div>
 {% endblock %} 

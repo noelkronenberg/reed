@@ -643,8 +643,8 @@ def rss_feed() -> Response:
             
     return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
 
-@app.route('/encrypt-keys', methods=['GET', 'POST'])
-def encrypt_keys_page():
+@app.route('/build-feed', methods=['GET', 'POST'])
+def build_feed():
     """
     Ecrypt API keys for use in the RSS feed URL.
     """
@@ -653,6 +653,16 @@ def encrypt_keys_page():
     encoded = None
     feed_url = None
 
+    default_keys = {'zotero_user_id': '', 'zotero_api_key': '', 'semantic_scholar_api_key': ''}
+
+    # pre-fill form fields if user is logged in
+    if current_user.is_authenticated:
+        default_keys = {
+            'zotero_user_id': current_user.get_zotero_user_id() or '',
+            'zotero_api_key': current_user.get_zotero_api_key() or '',
+            'semantic_scholar_api_key': current_user.get_semantic_scholar_api_key() or ''
+        }
+    
     if request.method == 'POST':
 
         try:
@@ -667,11 +677,11 @@ def encrypt_keys_page():
             
         except Exception as e:
             flash(f"Encryption failed: {e}", 'error')
-            return redirect(url_for('encrypt_keys_page'))
-
+            return redirect(url_for('build_feed'))
+        
         encoded = {k: urllib.parse.quote(v) for k, v in encrypted.items()}
         feed_url = (request.url_root.rstrip('/') + '/feed.xml?zotero_user_id=' + encoded['zotero_user_id'] +
                     '&zotero_api_key=' + encoded['zotero_api_key'] +
                     '&semantic_scholar_api_key=' + encoded['semantic_scholar_api_key'])
-    
-    return render_template('encrypt_keys.html', encrypted=encrypted, encoded=encoded, feed_url=feed_url)
+        
+    return render_template('build_feed.html', encrypted=encrypted, encoded=encoded, feed_url=feed_url, default_keys=default_keys)
