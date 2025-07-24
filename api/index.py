@@ -11,6 +11,8 @@ import random
 import time
 from dotenv import load_dotenv
 from api.models import db, User # NOTE: remove api if wipe_db.py is run locally
+from cryptography.fernet import Fernet
+import urllib.parse
 
 load_dotenv('.env.local')
 
@@ -41,7 +43,51 @@ API_CALL_DELAY = 1.5 # seconds between API calls
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'na')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'na')
 
-# Create database tables
+encryption_key = os.getenv('ENCRYPTION_KEY')
+cipher_suite = Fernet(encryption_key)
+
+def decrypt_param(param: str) -> str:
+    """
+    Decrypt a URL parameter.
+
+    Args:
+        param (str): The URL parameter to decrypt.
+    
+    Returns:
+        str: The decrypted parameter.
+    """
+
+    try:
+        logger.debug(f"Attempting to decrypt: {param}")
+        decrypted = cipher_suite.decrypt(param.encode()).decode()
+        logger.debug(f"Decrypted: {decrypted}")
+        return decrypted
+    except Exception as e:
+        logger.error(f"Failed to decrypt param: {e}")
+        return ''
+
+def load_api_keys_from_url() -> dict:
+    """
+    Load API keys from encrypted URL parameters if present, else fallback to user/session.
+
+    Returns:
+        dict: A dictionary containing the API keys.
+    """
+
+    z_uid = request.args.get('zotero_user_id')
+    z_key = request.args.get('zotero_api_key')
+    s2_key = request.args.get('semantic_scholar_api_key')
+    if z_uid and z_key and s2_key:
+        logger.debug("Loading API keys from encrypted URL parameters")
+        return {
+            'zotero_user_id': decrypt_param(z_uid),
+            'zotero_api_key': decrypt_param(z_key),
+            'semantic_scholar_api_key': decrypt_param(s2_key)
+        }
+    else:
+        return load_api_keys()
+
+# create database tables
 with app.app_context():
     db.create_all()
     logger.debug("Created all tables") 
@@ -103,18 +149,20 @@ def save_api_keys(keys: dict) -> None:
         db.session.commit()
         logger.debug(f"Saved API keys to user storage")
 
-def fetch_recent_papers(n_papers: int = 100) -> list:
+def fetch_recent_papers(n_papers: int = 100, keys: dict = None) -> list:
     """
     Fetch the last n_papers from Zotero.
 
     Args:
         n_papers (int): Number of papers to fetch.
+        keys (dict): A dictionary containing the API keys.
 
     Returns:
         list: A list of dictionaries containing the recent papers.
     """
 
-    keys = load_api_keys()
+    if keys is None:
+        keys = load_api_keys()
     
     if not keys['zotero_api_key'] or not keys['zotero_user_id']:
         logger.debug("Missing Zotero API keys")
@@ -187,7 +235,7 @@ def get_random_seed_papers(papers: list, n_seed_papers: int = 10) -> list:
     
     return seed_papers
 
-def get_paper_recommendations(seed_papers: list, n_recommendations: int = 3) -> list:
+def get_paper_recommendations(seed_papers: list, n_recommendations: int = 3, keys: dict = None) -> list:
     """
     Get paper recommendations from Semantic Scholar based on random seed papers.
     Ensures we get exactly n_recommendations with all required fields.
@@ -195,12 +243,14 @@ def get_paper_recommendations(seed_papers: list, n_recommendations: int = 3) -> 
     Args:
         seed_papers (list): List of papers to use as seed for recommendations.
         n_recommendations (int): Number of recommendations to get.
+        keys (dict): A dictionary containing the API keys.
 
     Returns:
         list: A list of n_recommendations dictionaries containing the recommendations.
     """
 
-    keys = load_api_keys()
+    if keys is None:
+        keys = load_api_keys()
     if not keys['semantic_scholar_api_key'] or not seed_papers:
         logger.debug("Missing Semantic Scholar API key or no seed papers")
         return []
@@ -554,42 +604,74 @@ def get_recommendations() -> json:
 @app.route('/feed.xml')
 def rss_feed() -> Response:
     """
-    Generate RSS feed of paper recommendations (disabled for now).
+    Generate RSS feed of paper recommendations.
 
     Returns:
         Response: 503 Service Unavailable response.
     """
 
-    if False: # disable RSS feed for now
-        _, recommendations, last_update_date = update_recommendations(n_seed_papers=10, n_recommendations=3)
-        
-        fg = FeedGenerator()
-        fg.title('Paper Recommendations')
-        fg.description('Latest paper recommendations based on your Zotero library')
-        fg.link(href=request.url_root)
-        fg.language('en')
-        
-        if last_update_date:
-            # add timezone info to the datetime
-            date_obj = datetime.strptime(last_update_date, '%Y-%m-%d')
-            date_obj = date_obj.replace(tzinfo=timezone.utc)
-            fg.updated(date_obj)
-        
-        for paper in recommendations:
-            fe = fg.add_entry()
-            fe.title(paper['title'])
-            fe.link(href=paper['url'])
-            fe.description(paper['abstract'])
-            fe.author(name=', '.join(paper['authors']))
-            if paper['date']:
-                try:
-                    # add timezone info to the publication date
-                    pub_date = datetime.strptime(paper['date'], '%B %d, %Y')
-                    pub_date = pub_date.replace(tzinfo=timezone.utc)
-                    fe.published(pub_date)
-                except:
-                    pass
-        
-        return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
-    else:
-        return Response('RSS feed is currently not available', status=503)
+    keys = load_api_keys_from_url()
+    papers = fetch_recent_papers(n_papers=100, keys=keys)
+    seed_papers = get_random_seed_papers(papers, n_seed_papers=10)
+    recommendations = get_paper_recommendations(seed_papers, n_recommendations=3, keys=keys)
+    last_update_date = datetime.now().date().strftime('%Y-%m-%d')
+
+    fg = FeedGenerator()
+    fg.title('Paper Recommendations')
+    fg.description('Latest paper recommendations based on your Zotero library')
+    fg.link(href=request.url_root)
+    fg.language('en')
+    
+    if last_update_date:
+        date_obj = datetime.strptime(last_update_date, '%Y-%m-%d')
+        date_obj = date_obj.replace(tzinfo=timezone.utc)
+        fg.updated(date_obj)
+    
+    for paper in recommendations:
+        fe = fg.add_entry()
+        fe.title(paper['title'])
+        fe.link(href=paper['url'])
+        fe.description(paper['abstract'])
+        fe.author(name=', '.join(paper['authors']))
+        if paper['date']:
+            try:
+                pub_date = datetime.strptime(paper['date'], '%B %d, %Y')
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+                fe.published(pub_date)
+            except:
+                pass
+            
+    return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
+
+@app.route('/encrypt-keys', methods=['GET', 'POST'])
+def encrypt_keys_page():
+    """
+    Ecrypt API keys for use in the RSS feed URL.
+    """
+
+    encrypted = None
+    encoded = None
+    feed_url = None
+
+    if request.method == 'POST':
+
+        try:
+            z_uid = request.form.get('zotero_user_id', '')
+            z_key = request.form.get('zotero_api_key', '')
+            s2_key = request.form.get('semantic_scholar_api_key', '')
+            encrypted = {
+                'zotero_user_id': cipher_suite.encrypt(z_uid.encode()).decode() if z_uid else '',
+                'zotero_api_key': cipher_suite.encrypt(z_key.encode()).decode() if z_key else '',
+                'semantic_scholar_api_key': cipher_suite.encrypt(s2_key.encode()).decode() if s2_key else ''
+            }
+            
+        except Exception as e:
+            flash(f"Encryption failed: {e}", 'error')
+            return redirect(url_for('encrypt_keys_page'))
+
+        encoded = {k: urllib.parse.quote(v) for k, v in encrypted.items()}
+        feed_url = (request.url_root.rstrip('/') + '/feed.xml?zotero_user_id=' + encoded['zotero_user_id'] +
+                    '&zotero_api_key=' + encoded['zotero_api_key'] +
+                    '&semantic_scholar_api_key=' + encoded['semantic_scholar_api_key'])
+    
+    return render_template('encrypt_keys.html', encrypted=encrypted, encoded=encoded, feed_url=feed_url)

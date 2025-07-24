@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-bg">
+    <div class="main-header">
+        <div class="main-header-title">
+            <span>Encrypt API Keys</span>
+        </div>
+        <div class="main-header-subtitle">
+            Generate encrypted API keys for use in your RSS feed URL
+        </div>
+    </div>
+    <div class="feed-card">
+        <form method="POST" class="custom-form">
+            <div class="form-group">
+                <label for="zotero_user_id">Zotero User ID</label>
+                <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID">
+            </div>
+            <div class="form-group">
+                <label for="zotero_api_key">Zotero API Key</label>
+                <input type="password" id="zotero_api_key" name="zotero_api_key" placeholder="Enter your Zotero API key">
+            </div>
+            <div class="form-group">
+                <label for="semantic_scholar_api_key">Semantic Scholar API Key</label>
+                <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" placeholder="Enter your Semantic Scholar API key">
+            </div>
+            <button type="submit" class="custom-btn">Encrypt</button>
+        </form>
+
+        {% if encrypted %}
+            <div class="custom-card-footer" style="margin-top:1.5rem;">
+                <h3 style="margin-top:1.5rem;">Feed URL:</h3>
+                <code style="word-break:break-all;">{{ feed_url }}</code>
+            </div>
+        {% endif %}
+
+        {% include '_flash_messages.html' %}
+    </div>
+</div>
+{% endblock %} 
