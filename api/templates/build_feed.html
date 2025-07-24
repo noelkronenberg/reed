@@ -1,45 +1,58 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encrypt API Keys</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="page-bg">
+        <div class="main-header">
+            <div class="main-header-title">
+                <span class="icon">⚡</span>
+                <span>Encrypt API Keys</span>
+            </div>
+            <div class="main-header-subtitle">
+                Generate encrypted API keys for your RSS feed URL
+            </div>
+        </div>
+        <div class="feed-card">
+            <form method="POST" class="custom-form">
+                <div class="form-group">
+                    <label for="zotero_user_id">Zotero User ID</label>
+                    <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID" value="{{ default_keys.zotero_user_id }}">
+                </div>
+                <div class="form-group">
+                    <label for="zotero_api_key">Zotero API Key</label>
+                    <input type="password" id="zotero_api_key" name="zotero_api_key" placeholder="Enter your Zotero API key" value="{{ default_keys.zotero_api_key }}">
+                </div>
+                <div class="form-group">
+                    <label for="semantic_scholar_api_key">Semantic Scholar API Key</label>
+                    <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" placeholder="Enter your Semantic Scholar API key" value="{{ default_keys.semantic_scholar_api_key }}">
+                </div>
+                <button type="submit" class="custom-btn">Encrypt</button>
+            </form>
 
-{% block content %}
-<div class="page-bg">
-    <div class="main-header">
-        <div class="main-header-title">
-            <span>Encrypt API Keys</span>
+            {% if encrypted %}
+                <div class="custom-card-footer" style="margin-top:1.5rem;">
+                    <h3 style="margin-top:1.5rem;">Feed URL:</h3>
+                    <code style="word-break:break-all;">{{ feed_url }}</code>
+                </div>
+            {% endif %}
+
+            {% include '_flash_messages.html' %}
+
+            <a href="{{ url_for('index') }}" class="back-link">← Back to Papers</a>
         </div>
-        <div class="main-header-subtitle">
-            Generate encrypted API keys for use in your RSS feed URL
-        </div>
+        <footer class="footer-menu">
+            <div class="footer-content">
+                <span class="footer-attribution">Powered in part by <a href="https://www.semanticscholar.org/product/api" target="_blank">Semantic Scholar</a></span>
+            </div>
+        </footer>
     </div>
-    <div class="feed-card">
-        <form method="POST" class="custom-form">
-            <div class="form-group">
-                <label for="zotero_user_id">Zotero User ID</label>
-                <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID" value="{{ default_keys.zotero_user_id }}">
-            </div>
-            <div class="form-group">
-                <label for="zotero_api_key">Zotero API Key</label>
-                <input type="password" id="zotero_api_key" name="zotero_api_key" placeholder="Enter your Zotero API key" value="{{ default_keys.zotero_api_key }}">
-            </div>
-            <div class="form-group">
-                <label for="semantic_scholar_api_key">Semantic Scholar API Key</label>
-                <input type="password" id="semantic_scholar_api_key" name="semantic_scholar_api_key" placeholder="Enter your Semantic Scholar API key" value="{{ default_keys.semantic_scholar_api_key }}">
-            </div>
-            <button type="submit" class="custom-btn">Encrypt</button>
-        </form>
-
-        {% if encrypted %}
-            <div class="custom-card-footer" style="margin-top:1.5rem;">
-                <h3 style="margin-top:1.5rem;">Feed URL:</h3>
-                <code style="word-break:break-all;">{{ feed_url }}</code>
-            </div>
-        {% endif %}
-
-        {% include '_flash_messages.html' %}
-    </div>
-    <footer class="footer-menu">
-        <div class="footer-content">
-            <span class="footer-attribution">Powered in part by <a href="https://www.semanticscholar.org/product/api" target="_blank">Semantic Scholar</a></span>
-        </div>
-    </footer>
-</div>
-{% endblock %} 
+</body>
+</html> 
