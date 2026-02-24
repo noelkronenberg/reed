@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, Response, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from pyzotero import zotero
 import requests
 import json
@@ -20,7 +21,9 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.getenv('SECRET_KEY', os.urandom(24))
+csrf = CSRFProtect(app)
+app.jinja_env.globals['csrf_token'] = generate_csrf
 
 # database configuration
 database_url = os.getenv('DATABASE_URL', '').replace('postgres://', 'postgresql://')

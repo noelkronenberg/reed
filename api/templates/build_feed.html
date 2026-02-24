@@ -22,6 +22,7 @@
         </div>
         <div class="feed-card">
             <form method="POST" class="custom-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="zotero_user_id">Zotero User ID</label>
                     <input type="password" id="zotero_user_id" name="zotero_user_id" placeholder="Enter your Zotero user ID" value="{{ default_keys.zotero_user_id }}">
@@ -36,6 +37,11 @@
                 </div>
                 <button type="submit" class="custom-btn">Encrypt</button>
             </form>
+
+            <p class="security-note" style="margin-top:1rem;font-size:0.9rem;color:#666;">
+                Your RSS feed URL contains encrypted access to your Zotero and Semantic Scholar keys. Access to it allows anyone to view your feed. Treat it as a secret and only share it with services you trust. By entering your API keys you accept responsibility for their use. You can review how keys are handled in the open-source code on
+                <a href="https://github.com/noelkronenberg/reed" target="_blank" rel="noopener noreferrer">GitHub</a>.
+            </p>
 
             {% if encrypted %}
                 <div class="custom-card-footer" style="margin-top:1.5rem;">

@@ -1,6 +1,7 @@
 flask
 flask-login
 flask-sqlalchemy
+flask-wtf
 psycopg2-binary
 cryptography
 pyzotero
