@@ -40,11 +40,15 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 API_CALL_DELAY = 1.5 # seconds between API calls
+FEED_CACHE_TTL_SECONDS = 12 * 60 * 60 # duration of cache in seconds
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'na')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'na')
 
 encryption_key = os.getenv('ENCRYPTION_KEY')
 cipher_suite = Fernet(encryption_key)
+
+# in-memory cache for RSS feed responses
+feed_cache: dict[str, dict] = {}
 
 def decrypt_param(param: str) -> str:
     """
@@ -610,7 +614,23 @@ def rss_feed() -> Response:
         Response: 503 Service Unavailable response.
     """
 
+    # build cache key from encrypted URL parameters (user-specific)
+    enc_z_uid = request.args.get('zotero_user_id', '')
+    enc_z_key = request.args.get('zotero_api_key', '')
+    enc_s_key = request.args.get('semantic_scholar_api_key', '')
+    cache_key = f"{enc_z_uid}|{enc_z_key}|{enc_s_key}"
+
     keys = load_api_keys_from_url()
+    
+    now = datetime.now(timezone.utc)
+    cached = feed_cache.get(cache_key)
+    if cached:
+        age_seconds = (now - cached["timestamp"]).total_seconds()
+        if age_seconds < FEED_CACHE_TTL_SECONDS:
+            logger.debug(f"Serving cached RSS feed from in-memory cache, age {age_seconds:.0f}s")
+            return Response(cached["xml"], mimetype='application/rss+xml')
+
+    logger.debug("Generating new RSS feed")
     papers = fetch_recent_papers(n_papers=100, keys=keys)
     seed_papers = get_random_seed_papers(papers, n_seed_papers=10)
     recommendations = get_paper_recommendations(seed_papers, n_recommendations=3, keys=keys)
@@ -640,8 +660,14 @@ def rss_feed() -> Response:
                 fe.published(pub_date)
             except:
                 pass
+
+    rss_xml = fg.rss_str(pretty=True)
+
+    # store in cache
+    feed_cache[cache_key] = {"xml": rss_xml, "timestamp": now}
+    logger.debug("Cached RSS feed in in-memory cache")
             
-    return Response(fg.rss_str(pretty=True), mimetype='application/rss+xml')
+    return Response(rss_xml, mimetype='application/rss+xml')
 
 @app.route('/build-feed', methods=['GET', 'POST'])
 def build_feed():
